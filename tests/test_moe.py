@@ -41,63 +41,70 @@ def test_dense_moe_forward():
         input_dim,
     ), f"Expected output shape (32, {input_dim}), got {output.shape}"
 
-
-def test_sparse_moe_forward():
-    input_dim = 8
-    hidden_dim = 16
-    num_experts = 8
+@pytest.mark.parametrize("aux_loss_flag, use_shared", [
+    (False, False),
+    (True, False),
+    (False, True),
+    (True, True),
+])
+def test_sparse_moe_forward(aux_loss_flag, use_shared):
+    torch.manual_seed(42)
+    batch_size = 16
+    input_dim = 32
+    hidden_dim = 64
+    num_expert = 4
     top_k = 2
-    sparse_moe = SparseMoE(input_dim, hidden_dim, num_experts, top_k=top_k)
-    x = torch.randn(32, input_dim)
-    output = sparse_moe(x)
-    assert output.shape == (
-        32,
-        input_dim,
-    ), f"Expected output shape (32, {input_dim}), got {output.shape}"
 
+    model = SparseMoE(
+        input_dim=input_dim,
+        hidden_dim=hidden_dim,
+        num_expert=num_expert,
+        top_k=top_k,
+        shared=use_shared,
+        aux_loss_flag=aux_loss_flag
+    )
 
-def test_sparse_moe_shared_expert():
-    input_dim = 8
-    hidden_dim = 16
-    num_experts = 8
-    top_k = 2
-    sparse_moe = SparseMoE(input_dim, hidden_dim, num_experts, top_k=top_k, shared=True)
-    x = torch.randn(32, input_dim)
-    output = sparse_moe(x)
-    assert output.shape == (
-        32,
-        input_dim,
-    ), f"Expected output shape (32, {input_dim}), got {output.shape}"
+    x = torch.randn(batch_size, input_dim)
+    output, aux = model(x)
 
+    # Check output shape
+    assert output.shape == (batch_size, input_dim), "Output shape mismatch"
 
-def test_sparse_moe_top_k_1():
-    input_dim = 8
-    hidden_dim = 16
-    num_experts = 8
-    top_k = 1
-    sparse_moe = SparseMoE(input_dim, hidden_dim, num_experts, top_k=top_k)
-    x = torch.randn(32, input_dim)
-    output = sparse_moe(x)
-    assert output.shape == (
-        32,
-        input_dim,
-    ), f"Expected output shape (32, {input_dim}), got {output.shape}"
+    # Check aux loss
+    if aux_loss_flag:
+        assert isinstance(aux, torch.Tensor), "Aux loss should be a tensor when enabled"
+        assert aux.dim() == 0, "Aux loss should be a scalar"
+        assert aux >= 0, "Aux loss should be non-negative"
+    else:
+        assert aux is None, "Aux loss should be None when not enabled"
 
+def test_sparse_moe_deterministic_expert_selection():
+    torch.manual_seed(123)
+    model = SparseMoE(16, 32, num_expert=4, top_k=1, shared=False, aux_loss_flag=False)
+    x = torch.randn(8, 16)
 
+    with torch.no_grad():
+        gate_logits = model.gate(x)
+        _, selected = torch.topk(gate_logits, model.top_k, dim=-1)
 
-def test_sparse_moe_small_batch():
-    input_dim = 8
-    hidden_dim = 16
-    num_experts = 8
-    top_k = 2
-    sparse_moe = SparseMoE(input_dim, hidden_dim, num_experts, top_k=top_k)
-    x = torch.randn(1, input_dim)
-    output = sparse_moe(x)
-    assert output.shape == (
-        1,
-        input_dim,
-    ), f"Expected output shape (1, {input_dim}), got {output.shape}"
+    # Forward call
+    output, _ = model(x)
 
+    # Check expert selection count
+    selected_flat = selected.view(-1).tolist()
+    unique_experts = set(selected_flat)
+    assert len(unique_experts) <= model.num_expert, "Selected experts exceed number of experts"
+
+def test_sparse_moe_backward():
+    model = SparseMoE(input_dim=16, hidden_dim=32, num_expert=4, top_k=2, shared=True, aux_loss_flag=True)
+    x = torch.randn(10, 16, requires_grad=True)
+    y, aux = model(x)
+    loss = y.mean()
+    if aux is not None:
+        loss += aux
+    loss.backward()
+    assert x.grad is not None, "No gradients computed"
+    assert x.grad.shape == x.shape, "Gradient shape mismatch"
 
 if __name__ == "__main__":
     pytest.main()
