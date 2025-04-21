@@ -1,19 +1,35 @@
 [project]
 name = "torchmoe"
 version = "0.1.0"
-description = "Add your description here"
+description = "MoE layer in pytorch"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.10"
 dependencies = [
-    "torch>=2.6.0",
+    "torch>=2.5.1",
 ]
+
+
+[tool.poetry]
+name = "torchmoe"
+version = "0.1.0"
+description = "PyTorch implementation of Mixture of Experts"
+authors = ["zhihao.shang@gmail.com"]
+license = "MIT"
+readme = "README.md"
+packages = [{ include = "torchmoe" }]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
 
 [dependency-groups]
 dev = [
-    "ipython>=9.1.0",
     "isort>=6.0.1",
     "mypy>=1.15.0",
     "poetry>=2.1.2",
     "pytest>=8.3.5",
-    "ruff>=0.11.2",
+    "ruff>=0.11.6",
 ]
