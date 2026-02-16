@@ -6,12 +6,13 @@ from torch.nn import functional as F
 class Expert(nn.Module):
     """
     A single MoE (Mixture of Experts) expert.
-    
+
     Args:
         input_dim (int): The input dimension of the expert.
         hidden_dim (int): The hidden dimension of the expert.
         activation (type[nn.Module]): The activation function to use.
     """
+
     def __init__(
         self, input_dim: int, hidden_dim: int, activation: type[nn.Module] = nn.GELU
     ):
@@ -33,11 +34,12 @@ class Expert(nn.Module):
 class Gate(nn.Module):
     """
     Assign weights to experts.
-    
+
     Args:
         input_dim (int): The input dimension of the gate.
         num_experts (int): The number of experts (output dimension of the gate).
     """
+
     def __init__(self, input_dim: int, num_experts: int):
         super().__init__()
         self.input_dim = input_dim
@@ -53,13 +55,14 @@ class Gate(nn.Module):
 class DenseMoE(nn.Module):
     """
     MoE (Mixture of Experts) layer with dense routing.
-    
+
     Args:
         input_dim (int): The input dimension.
         hidden_dim (int): The hidden dimension in experts.
         num_experts (int): The number of experts.
         expert_act (nn.Module): The activation function in experts.
     """
+
     def __init__(
         self,
         input_dim: int,
@@ -86,12 +89,18 @@ class DenseMoE(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # Get gate weights and apply softmax
-        gate_weights = self.gate(x).softmax(dim=1, dtype=x.dtype)  # Shape: [batch_size, num_experts]
+        gate_weights = self.gate(x).softmax(
+            dim=1, dtype=x.dtype
+        )  # Shape: [batch_size, num_experts]
 
         # Apply each expert with the corresponding weight
-        expert_outputs = torch.stack([expert(x) for expert in self.experts], dim=1)  # Shape: [batch_size, num_experts, input_dim]
+        expert_outputs = torch.stack(
+            [expert(x) for expert in self.experts], dim=1
+        )  # Shape: [batch_size, num_experts, input_dim]
         # Weighted sum of expert outputs
-        output = torch.sum(expert_outputs * gate_weights.unsqueeze(2), dim=1)  # Shape: [batch_size, input_dim]
+        output = torch.sum(
+            expert_outputs * gate_weights.unsqueeze(2), dim=1
+        )  # Shape: [batch_size, input_dim]
 
         return output  # Shape: [batch_size, input_dim]
 
@@ -99,7 +108,7 @@ class DenseMoE(nn.Module):
 class SparseMoE(nn.Module):
     """
     Sparse MoE (Mixture of Experts) layer.
-    
+
     Args:
         input_dim (int): The input dimension.
         hidden_dim (int): The hidden dimension in experts.
@@ -109,14 +118,17 @@ class SparseMoE(nn.Module):
         shared (bool): Whether to share the weights of experts.
         aux_loss (bool): Whether to use auxiliary loss.
     """
-    def __init__(self,
-                 input_dim: int, 
-                 hidden_dim: int, 
-                 num_expert: int = 8, 
-                 expert_act: type[nn.Module] = nn.GELU,
-                 top_k: int = 2,
-                 shared: bool = True,
-                 aux_loss_flag: bool = False):
+
+    def __init__(
+        self,
+        input_dim: int,
+        hidden_dim: int,
+        num_expert: int = 8,
+        expert_act: type[nn.Module] = nn.GELU,
+        top_k: int = 2,
+        shared: bool = True,
+        aux_loss_flag: bool = False,
+    ):
         super().__init__()
         if input_dim <= 0:
             raise ValueError(f"input_dim must be > 0, got {input_dim}")
@@ -140,20 +152,24 @@ class SparseMoE(nn.Module):
         self.aux_loss_flag = aux_loss_flag
 
         # List of experts
-        self.experts = nn.ModuleList([Expert(input_dim, hidden_dim, expert_act) for _ in range(num_expert)])
+        self.experts = nn.ModuleList(
+            [Expert(input_dim, hidden_dim, expert_act) for _ in range(num_expert)]
+        )
         # Gate to assign weights to experts
         self.gate = Gate(input_dim, num_expert)
         # Shared expert if sharing is enabled
         if self.shared:
             self.shared_expert = Expert(input_dim, hidden_dim, expert_act)
 
-    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor|None]:
+    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor | None]:
         # Get gate logits and apply softmax
         gate_logits = self.gate(x)  # Shape: [batch_size, num_experts]
         gate_probs = F.softmax(gate_logits, dim=-1)  # Shape: [batch_size, num_experts]
 
         # Select top k experts and their corresponding weights
-        weights, selected_experts = torch.topk(gate_logits, self.top_k, dim=-1)  # weights: [batch_size, top_k], selected_experts: [batch_size, top_k]
+        weights, selected_experts = torch.topk(
+            gate_logits, self.top_k, dim=-1
+        )  # weights: [batch_size, top_k], selected_experts: [batch_size, top_k]
         weights = F.softmax(weights, dim=-1).to(x.dtype)  # Shape: [batch_size, top_k]
 
         # Initialize results tensor
@@ -161,9 +177,13 @@ class SparseMoE(nn.Module):
 
         # Apply selected experts to the input
         for i, expert in enumerate(self.experts):
-            batch_idx, nth_expert = torch.where(selected_experts == i)  # batch_idx: [num_selected], nth_expert: [num_selected]
+            batch_idx, nth_expert = torch.where(
+                selected_experts == i
+            )  # batch_idx: [num_selected], nth_expert: [num_selected]
             if len(batch_idx) > 0:
-                results[batch_idx] += weights[batch_idx, nth_expert][:, None] * expert(x[batch_idx])  # Shape: [num_selected, input_dim]
+                results[batch_idx] += weights[batch_idx, nth_expert][:, None] * expert(
+                    x[batch_idx]
+                )  # Shape: [num_selected, input_dim]
 
         # Add shared expert output if sharing is enabled
         if self.shared:

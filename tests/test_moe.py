@@ -41,12 +41,16 @@ def test_dense_moe_forward():
         input_dim,
     ), f"Expected output shape (32, {input_dim}), got {output.shape}"
 
-@pytest.mark.parametrize("aux_loss_flag, use_shared", [
-    (False, False),
-    (True, False),
-    (False, True),
-    (True, True),
-])
+
+@pytest.mark.parametrize(
+    "aux_loss_flag, use_shared",
+    [
+        (False, False),
+        (True, False),
+        (False, True),
+        (True, True),
+    ],
+)
 def test_sparse_moe_forward(aux_loss_flag, use_shared):
     torch.manual_seed(42)
     batch_size = 16
@@ -61,7 +65,7 @@ def test_sparse_moe_forward(aux_loss_flag, use_shared):
         num_expert=num_expert,
         top_k=top_k,
         shared=use_shared,
-        aux_loss_flag=aux_loss_flag
+        aux_loss_flag=aux_loss_flag,
     )
 
     x = torch.randn(batch_size, input_dim)
@@ -78,6 +82,7 @@ def test_sparse_moe_forward(aux_loss_flag, use_shared):
     else:
         assert aux is None, "Aux loss should be None when not enabled"
 
+
 def test_sparse_moe_deterministic_expert_selection():
     torch.manual_seed(123)
     model = SparseMoE(16, 32, num_expert=4, top_k=1, shared=False, aux_loss_flag=False)
@@ -92,11 +97,23 @@ def test_sparse_moe_deterministic_expert_selection():
         _, selected_2 = torch.topk(gate_logits_2, model.top_k, dim=-1)
         output_2, _ = model(x)
 
-    assert torch.equal(selected_1, selected_2), "Expert selection should be deterministic"
-    assert torch.allclose(output_1, output_2), "Outputs should be deterministic for fixed input/model"
+    assert torch.equal(selected_1, selected_2), (
+        "Expert selection should be deterministic"
+    )
+    assert torch.allclose(output_1, output_2), (
+        "Outputs should be deterministic for fixed input/model"
+    )
+
 
 def test_sparse_moe_backward():
-    model = SparseMoE(input_dim=16, hidden_dim=32, num_expert=4, top_k=2, shared=True, aux_loss_flag=True)
+    model = SparseMoE(
+        input_dim=16,
+        hidden_dim=32,
+        num_expert=4,
+        top_k=2,
+        shared=True,
+        aux_loss_flag=True,
+    )
     x = torch.randn(10, 16, requires_grad=True)
     y, aux = model(x)
     loss = y.mean()
@@ -136,6 +153,7 @@ def test_dense_moe_rejects_invalid_num_experts():
 def test_sparse_moe_rejects_invalid_config(kwargs, error_substring):
     with pytest.raises(ValueError, match=error_substring):
         SparseMoE(**kwargs)
+
 
 if __name__ == "__main__":
     pytest.main()
