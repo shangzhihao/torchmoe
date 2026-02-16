@@ -20,6 +20,7 @@ packages = [{ include = "torchmoe" }]
 
 [tool.poetry.dependencies]
 python = "^3.10"
+torch = ">=2.5.1"
 
 [build-system]
 requires = ["poetry-core"]

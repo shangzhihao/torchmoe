@@ -10,8 +10,13 @@ This repository provides a clean and modular implementation of Mixture of Expert
 
 ## Installation
 
-Simply copy `moe.py` into your project directory. Requires:
+Clone the repository and install dependencies with `uv`:
 
+```bash
+uv sync --group dev
+```
+
+Requirements:
 - Python 3.10+
 - PyTorch 2.5.1+
 
@@ -21,7 +26,7 @@ Simply copy `moe.py` into your project directory. Requires:
 ### 1. Import the module
 
 ```python
-from moe import DenseMoE, SparseMoE
+from torchmoe.moe import DenseMoE, SparseMoE
 import torch
 ```
 
@@ -56,6 +61,7 @@ output, aux_loss = moe_layer(x)  # output shape: [32, 128], aux_loss is scalar o
 
 - `DenseMoE` uses all experts, so it's compute-intensive.
 - `SparseMoE` uses Top-k routing for better efficiency.
+- `SparseMoE` requires `1 <= top_k <= num_expert`.
 - When `aux_loss_flag=True`, `SparseMoE` returns an auxiliary load-balancing loss to encourage expert diversity.
 
 
