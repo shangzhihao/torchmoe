@@ -44,6 +44,19 @@ Configured hooks:
 - Config validation (`check-yaml`, `check-toml`)
 - Security/safety checks (`detect-private-key`, `check-added-large-files`)
 
+## CI
+
+GitHub Actions runs on:
+
+- every branch push
+- merged pull requests
+
+CI checks:
+
+- `uv run ruff check .`
+- `uv run mypy torchmoe`
+- `uv run pytest -q`
+
 ## Usage
 
 ### 1. Import the module
