@@ -68,10 +68,19 @@ class DenseMoE(nn.Module):
         expert_act: type[nn.Module] = nn.GELU,
     ):
         super().__init__()
+        if input_dim <= 0:
+            raise ValueError(f"input_dim must be > 0, got {input_dim}")
+        if hidden_dim <= 0:
+            raise ValueError(f"hidden_dim must be > 0, got {hidden_dim}")
+        if num_experts <= 0:
+            raise ValueError(f"num_experts must be > 0, got {num_experts}")
+
         self.input_dim = input_dim
         self.num_experts = num_experts
         # List of experts
-        self.experts = nn.ModuleList([Expert(input_dim, hidden_dim, expert_act) for _ in range(self.num_experts)])
+        self.experts = nn.ModuleList(
+            [Expert(input_dim, hidden_dim, expert_act) for _ in range(self.num_experts)]
+        )
         # Gate to assign weights to experts
         self.gate = Gate(input_dim, num_experts)
 
@@ -109,6 +118,19 @@ class SparseMoE(nn.Module):
                  shared: bool = True,
                  aux_loss_flag: bool = False):
         super().__init__()
+        if input_dim <= 0:
+            raise ValueError(f"input_dim must be > 0, got {input_dim}")
+        if hidden_dim <= 0:
+            raise ValueError(f"hidden_dim must be > 0, got {hidden_dim}")
+        if num_expert <= 0:
+            raise ValueError(f"num_expert must be > 0, got {num_expert}")
+        if top_k <= 0:
+            raise ValueError(f"top_k must be > 0, got {top_k}")
+        if top_k > num_expert:
+            raise ValueError(
+                f"top_k must be <= num_expert, got top_k={top_k}, num_expert={num_expert}"
+            )
+
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
         self.num_expert = num_expert
